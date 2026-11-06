@@ -86,6 +86,19 @@
 .island__active-task--focus {
   font-variant-numeric: tabular-nums;
   animation: none;
+  white-space: nowrap;
+}
+
+/* 专注时直接渲染的外层容器，跳过过渡动画层，保持与原 summary 一致的 flex 布局 */
+.island__summary--focus {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  align-items: center;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 @keyframes taskFlowIn {

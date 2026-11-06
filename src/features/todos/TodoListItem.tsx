@@ -1,6 +1,6 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useState } from "react";
-import { Check, GripVertical, Play, Trash2 } from "lucide-react";
+import { Check, GripVertical, Play, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import { getTodoTitleLineCount } from "../../utils/text";
 import { isUpdateTodo } from "./updateTodo";
@@ -9,6 +9,7 @@ import type { TodoItem } from "./types";
 import "./TodoListItem.css";
 
 function formatFocus(sec: number): string {
+  if (sec < 60) return `${sec}秒`;
   const m = Math.floor(sec / 60);
   if (m < 60) return `${m}分`;
   const h = Math.floor(m / 60);
@@ -171,7 +172,11 @@ export function TodoListItem({
               disabled={todo.completed}
               onClick={() => onStart(todo.id)}
             >
-              <Play size={13} strokeWidth={2.4} />
+              {isActive ? (
+                <Square size={12} strokeWidth={2.6} fill="currentColor" />
+              ) : (
+                <Play size={13} strokeWidth={2.4} />
+              )}
               <span>{isActive ? t.todo.stop : t.todo.start}</span>
             </button>
           </span>}

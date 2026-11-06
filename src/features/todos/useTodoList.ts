@@ -136,10 +136,15 @@ export function useTodoList(onStartTodo: () => void) {
   }, [activeTodoId]);
 
   useEffect(() => {
-    if (
-      activeTodoId &&
-      !todos.some((todo) => todo.id === activeTodoId && !todo.completed)
-    ) {
+    if (!activeTodoId) {
+      return;
+    }
+    const activeTodo = todos.find(
+      (todo) => todo.id === activeTodoId && !todo.completed,
+    );
+    // 活动任务不存在，或重启后没有正在运行的计时（focusStartedAt 未恢复），
+    // 则重置活动状态，避免出现“显示结束却没有计时”的卡死态；累计时长仍保留
+    if (!activeTodo || !activeTodo.focusStartedAt) {
       setActiveTodoId(null);
     }
   }, [activeTodoId, todos]);

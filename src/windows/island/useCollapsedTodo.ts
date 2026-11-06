@@ -40,9 +40,11 @@ export function useCollapsedTodo(
     settings.todoRotationSeconds,
     isRotationPaused || !!activeTodoId,
   );
+  // 专注时强制锁定活动任务，绕过轮播过滤可能导致的 id 丢失
+  const forceActiveId = activeTodoId || displayedTodoId;
   const collapsedTaskTitle = useMemo(() => {
     const activeTodo = todos.find(
-      (todo) => todo.id === displayedTodoId && !todo.completed,
+      (todo) => todo.id === forceActiveId && !todo.completed,
     );
     if (!activeTodo) return null;
     if (activeTodo.focusStartedAt) {
@@ -50,16 +52,16 @@ export function useCollapsedTodo(
       return `${activeTodo.title} · ${formatTimer(elapsed)}`;
     }
     return activeTodo.title;
-  }, [displayedTodoId, todos, now]);
+  }, [forceActiveId, todos, now]);
   // 计时中用固定占位串算宽度，避免秒数跳动导致岛屿宽度抖动
   const collapsedWidthSource = useMemo(() => {
     if (!collapsedTaskTitle) return collapsedTaskTitle;
-    const activeTodo = todos.find((todo) => todo.id === displayedTodoId && !todo.completed);
+    const activeTodo = todos.find((todo) => todo.id === forceActiveId && !todo.completed);
     if (activeTodo?.focusStartedAt) {
       return `${activeTodo.title} · 00:00`;
     }
     return collapsedTaskTitle;
-  }, [collapsedTaskTitle, displayedTodoId, todos]);
+  }, [collapsedTaskTitle, forceActiveId, todos]);
   const collapsedTodoCount = settings.showIdleTodoCount && !collapsedTaskTitle
     ? todos.filter((todo) => !todo.completed).length
     : null;

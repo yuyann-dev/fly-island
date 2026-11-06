@@ -68,6 +68,26 @@ export function IslandCollapsedBar({
     `island__pulse--agent-${agentVisualState}`,
   ].join(" ");
 
+  const taskContent = (
+    <>
+      {showCollapsedText && showTitle && (
+        <span className="island__brand">fly-island</span>
+      )}
+      {showCollapsedText && collapsedTaskTitle && (
+        <span className={isFocusing ? "island__active-task island__active-task--focus" : "island__active-task"}>
+          {showTitle ? "· " : ""}
+          {collapsedTaskTitle}
+        </span>
+      )}
+      {showCollapsedText && !collapsedTaskTitle && collapsedTodoCount !== null && (
+        <span className="island__todo-count">
+          {showTitle ? "· " : ""}
+          {t.island.pendingTodos(collapsedTodoCount)}
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div
       className="island__collapsed"
@@ -108,23 +128,15 @@ export function IslandCollapsedBar({
         }}
       >
         <span className={pulseClassName} title={agentStatusLabel} />
-        <CollapsedMessageContent preview={preview} enabled={!isExpanded && !isTucked}>
-          {showCollapsedText && showTitle && (
-            <span className="island__brand">fly-island</span>
-          )}
-          {showCollapsedText && collapsedTaskTitle && (
-            <span className={isFocusing ? "island__active-task island__active-task--focus" : "island__active-task"}>
-              {showTitle ? "· " : ""}
-              {collapsedTaskTitle}
-            </span>
-          )}
-          {showCollapsedText && !collapsedTaskTitle && collapsedTodoCount !== null && (
-            <span className="island__todo-count">
-              {showTitle ? "· " : ""}
-              {t.island.pendingTodos(collapsedTodoCount)}
-            </span>
-          )}
-        </CollapsedMessageContent>
+        {isFocusing ? (
+          <span className="island__summary island__summary--focus">
+            {taskContent}
+          </span>
+        ) : (
+          <CollapsedMessageContent preview={preview} enabled={!isExpanded && !isTucked}>
+            {taskContent}
+          </CollapsedMessageContent>
+        )}
       </button>
       {qqMail.preview !== null && (
         <button className="island-message-button island-message-button--compact qq-mail-badge" type="button" aria-label={t.messages.newMailLabel} title={t.messages.openNewMail} onClick={() => onOpenMessages("qqMail")}>

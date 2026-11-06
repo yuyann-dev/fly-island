@@ -18,6 +18,12 @@ export function normalizeTodo(todo: Partial<TodoItem>): TodoItem {
     title: todo.title?.trim() ?? "",
     completed: Boolean(todo.completed),
     createdAt: typeof todo.createdAt === "number" ? todo.createdAt : Date.now(),
+    // 保留累计专注时长（支持多次开始/停止累计、重启后不丢失）；
+    // 不恢复 focusStartedAt，避免重启后把关闭期间的时间计入正计时
+    focusTotalSec:
+      typeof todo.focusTotalSec === "number" && todo.focusTotalSec > 0
+        ? todo.focusTotalSec
+        : undefined,
   };
 }
 
