@@ -12,6 +12,7 @@ const en: Translations = {
     saved: "Saved",
     connecting: "Connecting",
     noMessages: "No messages",
+    cancel: "Cancel",
   },
   messages: {
     title: "Messages",
@@ -45,6 +46,9 @@ const en: Translations = {
     title: "QQ messages",
     pause: "Pause QQ notifications",
     resume: "Receive QQ notifications",
+    modeLabel: "QQ notification mode",
+    modeToast: "Toast listener",
+    modeSilent: "Silent red dot",
     allow: "Allow notification access",
     allowLabel: "Allow access to QQ notifications",
     grant: "Allow",
@@ -112,11 +116,23 @@ const en: Translations = {
     refreshLabel: "Refresh QQ Mail",
     disconnect: "Disconnect and remove authorization code",
     disconnectLabel: "Disconnect QQ Mail and remove the saved authorization code",
-    email: "QQ email address",
+    email: "Email address",
     emailPlaceholder: "address@qq.com",
-    authorizationCode: "QQ Mail authorization code",
+    authorizationCode: "Mail authorization code",
     authorizationPlaceholder: "Mail authorization code",
+    mailType: "Mail type",
+    typeAuto: "Auto detect",
+    typeQq: "QQ Mail",
+    type163: "163 Mail",
+    type126: "126 Mail",
+    typeGmail: "Gmail",
+    typeOutlook: "Outlook",
+    accounts: "Mail accounts",
+    addAccount: "Add account",
+    removeAccount: "Remove this account",
     connect: "Connect",
+    proxy: "SOCKS5 proxy (optional)",
+    proxyPlaceholder: "127.0.0.1:7890",
     inbox: "Latest 20 inbox messages",
     syncing: "Syncing",
     empty: "No mail",
@@ -268,6 +284,14 @@ const en: Translations = {
     deleteTask: (taskTitle) => `Delete: ${taskTitle}`,
     reorder: "Drag to reorder",
     reorderTask: (taskTitle) => `Reorder: ${taskTitle}`,
+    focusTotal: (sec) => {
+      const m = Math.floor(sec / 60);
+      if (m < 60) return `${m}m`;
+      const h = Math.floor(m / 60);
+      return `${h}h ${m % 60}m`;
+    },
+    todayFocus: "Today",
+    dndAuto: "DND when focusing",
   },
 
   clipboard: {
@@ -394,6 +418,7 @@ const en: Translations = {
       title: "Tasks",
       carryOverIncomplete: "Carry unfinished tasks to next day",
       enableReorder: "Drag to reorder tasks",
+      dndDuringFocus: "Do not disturb while focusing",
       rotateTodos: "Rotate through pending tasks",
       rotationSeconds: "Time per task (seconds)",
     },
@@ -418,6 +443,7 @@ const en: Translations = {
       shortcut: "Expand shortcut",
       shortcutEnabled: "Enable expand shortcut",
       pressKeys: "Press keys",
+      conflict: "May conflict with system",
     },
 
     colors: {

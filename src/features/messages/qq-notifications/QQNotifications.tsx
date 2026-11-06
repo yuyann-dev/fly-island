@@ -4,13 +4,14 @@ import { isTauri } from "@tauri-apps/api/core";
 import { ArrowUpRight, KeyRound, Power, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { MessageSourceIcon } from "../MessageSourceIcon";
 import { nextQQPreview, type QQPreviewTiming } from "../qqNotificationTiming";
-import { clearQQNotifications, getQQNotificationState, launchQQ, listenQQNotificationsChanged, openQQNotificationSettings, requestQQNotificationAccess, setQQNotificationsEnabled, type QQNotificationSnapshot } from "./api";
+import { clearQQNotifications, dismissQQNotification, getQQNotificationState, launchQQ, listenQQNotificationsChanged, openQQNotificationSettings, requestQQNotificationAccess, setQQNotificationsEnabled, setQQNotifyMode, type QQNotificationSnapshot, type QQNotifyMode } from "./api";
 import { hasRequestedQQNotificationAccess, isQQNotificationsEnabled, markQQNotificationAccessRequested, saveQQNotificationsEnabled } from "./storage";
 import "./QQNotifications.css";
 
 const EMPTY_SNAPSHOT: QQNotificationSnapshot = {
   revision: 0,
   enabled: false,
+  mode: "toast",
   status: "disabled",
   items: [],
   error: null,
@@ -116,6 +117,10 @@ export function useQQNotifications(canPreview: boolean) {
     }
   }), [acceptSnapshot, run]);
 
+  const setMode = useCallback((mode: QQNotifyMode) => run(async () => {
+    acceptSnapshot(await setQQNotifyMode(mode));
+  }), [acceptSnapshot, run]);
+
   const requestAccess = useCallback(() => run(async () => {
     markQQNotificationAccessRequested();
     await requestQQNotificationAccess();
@@ -141,17 +146,26 @@ export function useQQNotifications(canPreview: boolean) {
     setPreviewWindow(null);
   }), [run]);
 
-  const dismissNotification = useCallback((id: string) => {
-    setSnapshot((prev) => ({
-      ...prev,
-      items: prev.items.filter((item) => item.id !== id),
-    }));
+  const openQQAndDismiss = useCallback((id?: string) => run(async () => {
+    await launchQQ();
     setPreviewWindow(null);
-  }, []);
+    if (id) {
+      const next = await dismissQQNotification(id);
+      setSnapshot(next);
+    }
+  }), [run]);
+
+  const dismissNotification = useCallback((id: string) => {
+    setPreviewWindow(null);
+    void run(async () => {
+      const next = await dismissQQNotification(id);
+      setSnapshot(next);
+    });
+  }, [run]);
 
   return {
-    snapshot, busy, actionError, setEnabled, requestAccess, openSettings, refresh, clear, openQQ,
-    dismissNotification,
+    snapshot, busy, actionError, setEnabled, setMode, requestAccess, openSettings, refresh, clear, openQQ,
+    openQQAndDismiss, dismissNotification,
     previewReceivedAt: canPreview ? previewWindow?.receivedAt ?? null : null,
     preview: canPreview && previewWindow
       ? snapshot.items.find((item) => item.id === previewWindow.id) ?? null
@@ -184,7 +198,7 @@ export function QQNotificationControls({ controller, compact = false }: { contro
 }
 
 export function QQNotificationPanel({ controller, navigation }: { controller: QQNotificationsController; navigation: ReactNode }) {
-  const { snapshot, busy, actionError, refresh, clear, openQQ } = controller;
+  const { snapshot, busy, actionError, refresh, clear, openQQ, openQQAndDismiss } = controller;
   const t = useTranslation();
   const error = actionError || snapshot.error || (snapshot.status === "permissionRequired" || snapshot.status === "permissionDenied" ? t.qq.status[snapshot.status] : null);
   return (
@@ -199,12 +213,34 @@ export function QQNotificationPanel({ controller, navigation }: { controller: QQ
         </div>
       </header>
       {error && <p className="qq-panel__error" role="alert">{error}</p>}
+      {snapshot.enabled && (
+        <div className="qq-panel__mode" role="group" aria-label={t.qq.modeLabel}>
+          <button
+            type="button"
+            className={snapshot.mode === "toast" ? "is-active" : ""}
+            aria-pressed={snapshot.mode === "toast"}
+            disabled={busy}
+            onClick={() => void controller.setMode("toast")}
+          >
+            {t.qq.modeToast}
+          </button>
+          <button
+            type="button"
+            className={snapshot.mode === "silent" ? "is-active" : ""}
+            aria-pressed={snapshot.mode === "silent"}
+            disabled={busy}
+            onClick={() => void controller.setMode("silent")}
+          >
+            {t.qq.modeSilent}
+          </button>
+        </div>
+      )}
       <div className="qq-panel__list" role="list" aria-label={t.qq.list} aria-busy={busy}>
         {snapshot.items.length === 0 ? (
           <div className="qq-panel__empty" role="status"><span className="message-empty-icon"><MessageSourceIcon source="qq" size={28} /></span><span>{t.common.noMessages}</span></div>
         ) : snapshot.items.map((item) => (
           <article className="qq-panel__item" key={item.id} role="listitem">
-            <button type="button" disabled={busy} onClick={() => void openQQ()} aria-label={t.qq.openNotification(item.title)}>
+            <button type="button" disabled={busy} onClick={() => void openQQAndDismiss(item.id)} aria-label={t.qq.openNotification(item.title)}>
               <div className="qq-panel__item-heading"><strong>{item.title}</strong><time dateTime={new Date(item.createdAt).toISOString()}>{new Date(item.createdAt).toLocaleTimeString(t.localeTag, { hour: "2-digit", minute: "2-digit" })}</time></div>
               {item.body && <p>{item.body}</p>}
             </button>

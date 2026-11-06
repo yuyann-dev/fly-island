@@ -1,5 +1,6 @@
 //! QQ Mail over IMAP: commands, snapshot types and the background service.
 
+mod accounts;
 mod content;
 mod credentials;
 mod service;
@@ -14,8 +15,9 @@ use std::{
     thread,
     time::Instant,
 };
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
+use accounts::*;
 use content::*;
 use credentials::*;
 use service::*;
@@ -89,6 +91,10 @@ pub fn init(app: &AppHandle) -> Result<(), String> {
     if SERVICE.get().is_some() {
         return Ok(());
     }
+    // 记录多账号配置文件所在目录
+    if let Ok(app_dir) = app.path().app_data_dir() {
+        configure_accounts_dir(&app_dir);
+    }
     let (sender, receiver) = mpsc::channel();
     let service = Arc::new(MailService {
         app: app.clone(),
@@ -119,25 +125,43 @@ pub fn get_qq_mail_state() -> Result<MailSnapshot, String> {
 pub async fn connect_qq_mail(
     email: String,
     authorization_code: String,
+    imap_host: Option<String>,
+    imap_port: Option<u16>,
+    proxy: Option<String>,
+    mail_type: Option<String>,
 ) -> Result<MailSnapshot, String> {
     let email = normalize_email(&email)?;
     let secret = authorization_code.trim().to_string();
     if secret.is_empty() || secret.len() > 256 || secret.chars().any(char::is_control) {
-        return Err("请输入 QQ 邮箱设置中生成的授权码。".into());
+        return Err("请输入邮箱设置中生成的授权码。".into());
     }
+    let proxy = proxy.unwrap_or_default().trim().to_string();
+    let mail_type = mail_type.unwrap_or_else(|| "auto".to_string());
+    // 未显式指定主机时，根据邮箱域名选择默认 IMAP 服务器
+    let (host, port) = match (imap_host, imap_port) {
+        (Some(h), Some(p)) if !h.trim().is_empty() => (h.trim().to_string(), p),
+        (Some(h), None) if !h.trim().is_empty() => (h.trim().to_string(), DEFAULT_PORT),
+        _ => {
+            let (h, p) = default_imap_host(&email);
+            (h.to_string(), p)
+        }
+    };
+    // 保存/更新账号配置（多账号），旧账号保留在列表中
+    upsert_account(MailAccountProfile {
+        email: email.clone(),
+        host: host.clone(),
+        port,
+        proxy: proxy.clone(),
+        mail_type,
+    })?;
     let service = service()?;
     let (generation, snapshot) = {
         let mut state = service.lock()?;
-        if state.snapshot.configured
-            && state
-                .snapshot
-                .email
-                .as_ref()
-                .is_some_and(|current| current != &email)
-        {
-            return Err("请先断开当前邮箱，再连接其他账号。".into());
-        }
+        // 连接新账号时直接切换当前连接，不再要求先断开
         state.invalidate();
+        state.host = host.clone();
+        state.port = port;
+        state.proxy = proxy.clone();
         state.snapshot.email = Some(email.clone());
         state.snapshot.enabled = true;
         state.snapshot.syncing = true;
@@ -152,9 +176,12 @@ pub async fn connect_qq_mail(
             generation,
             email,
             secret,
+            host,
+            port,
+            proxy,
             reply,
         })
-        .map_err(|_| "QQ 邮箱服务不可用。".to_string())?;
+        .map_err(|_| "邮箱服务不可用。".to_string())?;
     await_reply(receiver).await
 }
 
@@ -180,6 +207,11 @@ pub async fn set_qq_mail_enabled(email: String, enabled: bool) -> Result<MailSna
         }
         let configured = read_secret(&email)?.is_some();
         state.invalidate();
+        if state.host.is_empty() {
+            let (h, p) = default_imap_host(&email);
+            state.host = h.to_string();
+            state.port = p;
+        }
         state.snapshot.email = Some(email);
         state.snapshot.configured = configured;
         state.snapshot.enabled = enabled && configured;
@@ -258,10 +290,11 @@ pub async fn read_qq_mail(message_id: String) -> Result<MailContent, String> {
 pub async fn disconnect_qq_mail() -> Result<MailSnapshot, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let service = service()?;
+        let active_email = service.lock()?.snapshot.email.clone();
         let mut state = service.lock()?;
         state.invalidate();
         state.snapshot.enabled = false;
-        if let Some(email) = &state.snapshot.email {
+        if let Some(email) = &active_email {
             if delete_secret(email).is_err() {
                 state.snapshot.status = MailStatus::Paused;
                 state.snapshot.error =
@@ -272,7 +305,12 @@ pub async fn disconnect_qq_mail() -> Result<MailSnapshot, String> {
                 let _ = service.send(Work::Wake);
                 return Err("删除邮箱凭据失败，请重试断开。".into());
             }
+            // 同时从多账号列表移除
+            let _ = remove_account(email);
         }
+        state.host = String::new();
+        state.port = DEFAULT_PORT;
+        state.proxy = String::new();
         let revision = state.snapshot.revision;
         state.snapshot = MailSnapshot {
             revision,
@@ -285,7 +323,95 @@ pub async fn disconnect_qq_mail() -> Result<MailSnapshot, String> {
         Ok(snapshot)
     })
     .await
-    .map_err(|_| "无法断开 QQ 邮箱。".to_string())?
+    .map_err(|_| "无法断开邮箱。".to_string())?
+}
+
+/// 账号列表项：账号配置 + 当前是否为活动连接。
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MailAccountEntry {
+    profile: MailAccountProfile,
+    active: bool,
+}
+
+#[tauri::command]
+pub fn list_mail_accounts() -> Result<Vec<MailAccountEntry>, String> {
+    let service = service()?;
+    let active_email = service.lock()?.snapshot.email.clone();
+    Ok(load_accounts()
+        .into_iter()
+        .map(|profile| MailAccountEntry {
+            active: active_email.as_deref() == Some(profile.email.as_str()),
+            profile,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn switch_mail_account(email: String) -> Result<MailSnapshot, String> {
+    let email = normalize_email(&email)?;
+    let profile = find_account(&email).ok_or("未找到该邮箱账号，请重新添加。")?;
+    let secret = read_secret(&email)?
+        .ok_or("未找到该邮箱的授权码，请重新连接。")?;
+    let service = service()?;
+    let (generation, snapshot) = {
+        let mut state = service.lock()?;
+        state.invalidate();
+        state.host = profile.host.clone();
+        state.port = profile.port;
+        state.proxy = profile.proxy.clone();
+        state.snapshot.email = Some(profile.email.clone());
+        state.snapshot.enabled = true;
+        state.snapshot.syncing = true;
+        state.snapshot.status = MailStatus::Connecting;
+        state.snapshot.error = None;
+        (state.generation, state.changed())
+    };
+    service.publish(snapshot, None);
+    let (reply, receiver) = mpsc::channel();
+    service
+        .send(Work::Connect {
+            generation,
+            email: profile.email,
+            secret,
+            host: profile.host,
+            port: profile.port,
+            proxy: profile.proxy,
+            reply,
+        })
+        .map_err(|_| "邮箱服务不可用。".to_string())?;
+    await_reply(receiver).await
+}
+
+#[tauri::command]
+pub async fn remove_mail_account(email: String) -> Result<MailSnapshot, String> {
+    let email = normalize_email(&email)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let service = service()?;
+        let is_active = service.lock()?.snapshot.email.as_deref() == Some(email.as_str());
+        let _ = delete_secret(&email);
+        let _ = remove_account(&email);
+        if is_active {
+            let mut state = service.lock()?;
+            state.invalidate();
+            state.host = String::new();
+            state.port = DEFAULT_PORT;
+            state.proxy = String::new();
+            let revision = state.snapshot.revision;
+            state.snapshot = MailSnapshot {
+                revision,
+                ..MailSnapshot::default()
+            };
+            let snapshot = state.changed();
+            drop(state);
+            service.publish(snapshot.clone(), None);
+            let _ = service.send(Work::Wake);
+            return Ok(snapshot);
+        }
+        Ok(service.lock()?.snapshot.clone())
+    })
+    .await
+    .map_err(|_| "无法删除邮箱账号。".to_string())?
 }
 
 async fn await_reply<T: Send + 'static>(

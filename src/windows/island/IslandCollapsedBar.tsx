@@ -21,6 +21,7 @@ type IslandCollapsedBarProps = {
   page: IslandPage;
   isExpanded: boolean;
   isTucked: boolean;
+  isFocusing: boolean;
   showTitle: boolean;
   showCollapsedText: boolean;
   collapsedLabel: string;
@@ -44,6 +45,7 @@ export function IslandCollapsedBar({
   page,
   isExpanded,
   isTucked,
+  isFocusing,
   showTitle,
   showCollapsedText,
   collapsedLabel,
@@ -111,7 +113,7 @@ export function IslandCollapsedBar({
             <span className="island__brand">fly-island</span>
           )}
           {showCollapsedText && collapsedTaskTitle && (
-            <span className="island__active-task" key={collapsedTaskTitle}>
+            <span className={isFocusing ? "island__active-task island__active-task--focus" : "island__active-task"}>
               {showTitle ? "· " : ""}
               {collapsedTaskTitle}
             </span>

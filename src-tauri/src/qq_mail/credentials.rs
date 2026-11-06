@@ -25,14 +25,24 @@ pub(super) fn delete_secret(email: &str) -> Result<(), String> {
 
 pub(super) fn normalize_email(email: &str) -> Result<String, String> {
     let email = email.trim().to_ascii_lowercase();
-    let local = email.strip_suffix("@qq.com").unwrap_or("");
-    if local.is_empty()
+    // 通用邮箱校验：支持 QQ、163、Gmail、Outlook 等任意合法地址，不再局限于 @qq.com
+    let mut parts = email.split('@');
+    let local = parts.next().unwrap_or("");
+    let domain = parts.next().unwrap_or("");
+    if parts.next().is_some()
+        || local.is_empty()
         || local.len() > 64
         || !local
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte))
+        || domain.is_empty()
+        || domain.len() > 255
+        || !domain.contains('.')
+        || domain
+            .bytes()
+            .any(|byte| !(byte.is_ascii_alphanumeric() || byte == b'.' || byte == b'-'))
     {
-        return Err("请输入有效的 @qq.com 邮箱地址。".into());
+        return Err("请输入有效的邮箱地址。".into());
     }
     Ok(email)
 }

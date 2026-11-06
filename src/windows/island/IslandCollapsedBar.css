@@ -82,6 +82,12 @@
   animation: taskFlowIn 260ms ease-out both;
 }
 
+/* 专注中：计时数字等宽，避免每秒跳动；整块常驻不重跑入场动画 */
+.island__active-task--focus {
+  font-variant-numeric: tabular-nums;
+  animation: none;
+}
+
 @keyframes taskFlowIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }

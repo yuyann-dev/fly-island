@@ -110,6 +110,9 @@
 
 .todo-notebook__open-count {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--color-ink-muted);
   white-space: nowrap;
 }
@@ -238,12 +241,13 @@
 }
 
 .todo-list::-webkit-scrollbar {
-  width: 6px;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
-.todo-list::-webkit-scrollbar-thumb {
-  background: rgba(31, 27, 22, 0.16);
-  border-radius: var(--radius-pill);
+.todo-list {
+  scrollbar-width: none;
 }
 
 .daily-note {

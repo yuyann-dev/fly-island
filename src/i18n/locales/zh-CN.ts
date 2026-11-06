@@ -12,6 +12,7 @@ const zhCN: Translations = {
     saved: "已保存",
     connecting: "连接中",
     noMessages: "暂无消息",
+    cancel: "取消",
   },
   messages: {
     title: "消息",
@@ -45,6 +46,9 @@ const zhCN: Translations = {
     title: "QQ 消息",
     pause: "暂停 QQ 通知",
     resume: "接收 QQ 通知",
+    modeLabel: "QQ 通知模式",
+    modeToast: "弹窗监听",
+    modeSilent: "静默红点",
     allow: "允许通知访问",
     allowLabel: "允许 QQ 通知访问",
     grant: "授权",
@@ -112,11 +116,23 @@ const zhCN: Translations = {
     refreshLabel: "刷新 QQ 邮箱",
     disconnect: "断开并删除授权码",
     disconnectLabel: "断开 QQ 邮箱并删除保存的授权码",
-    email: "QQ 邮箱地址",
+    email: "邮箱地址",
     emailPlaceholder: "邮箱地址@qq.com",
-    authorizationCode: "QQ 邮箱授权码",
+    authorizationCode: "邮箱授权码",
     authorizationPlaceholder: "邮箱授权码",
+    mailType: "邮箱类型",
+    typeAuto: "自动识别",
+    typeQq: "QQ 邮箱",
+    type163: "163 邮箱",
+    type126: "126 邮箱",
+    typeGmail: "Gmail",
+    typeOutlook: "Outlook",
+    accounts: "邮箱账号",
+    addAccount: "添加账号",
+    removeAccount: "删除该账号",
     connect: "连接",
+    proxy: "SOCKS5 代理（选填）",
+    proxyPlaceholder: "127.0.0.1:7890",
     inbox: "收件箱最近 20 封邮件",
     syncing: "同步中",
     empty: "暂无邮件",
@@ -256,7 +272,7 @@ const zhCN: Translations = {
   },
 
   todo: {
-    empty: "今天还很轻",
+    empty: "今天很轻松",
     emptyReview: "这里什么都没写",
     complete: "完成",
     markIncomplete: "标记未完成",
@@ -268,6 +284,14 @@ const zhCN: Translations = {
     deleteTask: (taskTitle) => `删除：${taskTitle}`,
     reorder: "拖动排序",
     reorderTask: (taskTitle) => `拖动排序：${taskTitle}`,
+    focusTotal: (sec) => {
+      const m = Math.floor(sec / 60);
+      if (m < 60) return `${m}分钟`;
+      const h = Math.floor(m / 60);
+      return `${h}小时${m % 60}分`;
+    },
+    todayFocus: "今日专注",
+    dndAuto: "开始任务时自动勿扰",
   },
 
   clipboard: {
@@ -394,6 +418,7 @@ const zhCN: Translations = {
       title: "待办设置",
       carryOverIncomplete: "自动将未完成任务写入下一天",
       enableReorder: "允许拖动调整任务顺序",
+      dndDuringFocus: "专注时自动开启勿扰模式",
       rotateTodos: "多任务流动",
       rotationSeconds: "每个任务停留时间（秒）",
     },
@@ -418,6 +443,7 @@ const zhCN: Translations = {
       shortcut: "展开快捷键",
       shortcutEnabled: "启用展开快捷键",
       pressKeys: "按下组合键",
+      conflict: "可能与系统冲突",
     },
 
     colors: {

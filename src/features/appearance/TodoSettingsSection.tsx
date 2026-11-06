@@ -29,6 +29,13 @@ export function TodoSettingsSection({ settings, onSettingsChange }: {
         }
       />
       <ToggleControl
+        label={t.settings.todo.dndDuringFocus}
+        checked={settings.dndDuringFocus}
+        onChange={(dndDuringFocus) =>
+          onSettingsChange({ ...settings, dndDuringFocus })
+        }
+      />
+      <ToggleControl
         label={t.settings.todo.rotateTodos}
         checked={settings.rotateTodos}
         onChange={(rotateTodos) => onSettingsChange({ ...settings, rotateTodos })}

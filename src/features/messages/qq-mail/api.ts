@@ -28,6 +28,20 @@ export type MailSnapshot = {
 
 export type MailEvent = { snapshot: MailSnapshot; newestId: string | null; windowVisible: boolean };
 
+// 多账号配置，与后端 MailAccountProfile / MailAccountEntry 对应。
+export type MailAccountProfile = {
+  email: string;
+  host: string;
+  port: number;
+  proxy: string;
+  mailType: string;
+};
+
+export type MailAccountEntry = {
+  profile: MailAccountProfile;
+  active: boolean;
+};
+
 // 与 qq_mail/mod.rs 中的 EVENT 一致。
 export const QQ_MAIL_CHANGED_EVENT = "qq-mail-changed";
 
@@ -39,6 +53,18 @@ export function getQQMailState() {
 
 export function invokeQQMailCommand(command: QQMailCommand, args?: Record<string, unknown>) {
   return invoke<MailSnapshot>(command, args);
+}
+
+export function listMailAccounts() {
+  return invoke<MailAccountEntry[]>("list_mail_accounts");
+}
+
+export function switchMailAccount(email: string) {
+  return invoke<MailSnapshot>("switch_mail_account", { email });
+}
+
+export function removeMailAccount(email: string) {
+  return invoke<MailSnapshot>("remove_mail_account", { email });
 }
 
 export function readQQMail(messageId: string) {

@@ -51,6 +51,15 @@ export function useCollapsedTodo(
     }
     return activeTodo.title;
   }, [displayedTodoId, todos, now]);
+  // 计时中用固定占位串算宽度，避免秒数跳动导致岛屿宽度抖动
+  const collapsedWidthSource = useMemo(() => {
+    if (!collapsedTaskTitle) return collapsedTaskTitle;
+    const activeTodo = todos.find((todo) => todo.id === displayedTodoId && !todo.completed);
+    if (activeTodo?.focusStartedAt) {
+      return `${activeTodo.title} · 00:00`;
+    }
+    return collapsedTaskTitle;
+  }, [collapsedTaskTitle, displayedTodoId, todos]);
   const collapsedTodoCount = settings.showIdleTodoCount && !collapsedTaskTitle
     ? todos.filter((todo) => !todo.completed).length
     : null;
@@ -58,12 +67,12 @@ export function useCollapsedTodo(
     () =>
       getCollapsedIslandWidth(
         settings.showCollapsedText
-          ? collapsedTaskTitle ?? (collapsedTodoCount !== null
+          ? collapsedWidthSource ?? (collapsedTodoCount !== null
             ? t.island.pendingTodos(collapsedTodoCount)
             : settings.showTitle ? "fly-island" : "")
           : "",
       ),
-    [collapsedTaskTitle, collapsedTodoCount, settings.showCollapsedText, settings.showTitle, t],
+    [collapsedWidthSource, collapsedTodoCount, settings.showCollapsedText, settings.showTitle, t],
   );
 
   return { collapsedTaskTitle, collapsedTodoCount, collapsedIslandWidth };

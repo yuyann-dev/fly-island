@@ -50,7 +50,8 @@ export function IslandApp() {
     onStartTodo: collapseIsland,
     onMissingSaveDirectory: openSavePathSettings,
   });
-  const canPreview = mode === "collapsed" && !isTucked && !activeTodoId;
+  const isDnd = Boolean(activeTodoId) && settings.dndDuringFocus;
+  const canPreview = mode === "collapsed" && !isTucked && !isDnd;
   const qqNotifications = useQQNotifications(canPreview);
   const wechatReminders = useWeChatReminders(canPreview);
   const qqMail = useQQMail(canPreview);
@@ -166,6 +167,7 @@ export function IslandApp() {
         isDetached={isPositionDetached || settings.marginY > 0}
         showTitle={settings.showTitle}
         showCollapsedText={settings.showCollapsedText}
+        isFocusing={Boolean(activeTodoId)}
         collapsedTaskTitle={collapsedTaskTitle}
         collapsedTodoCount={collapsedTodoCount}
         mediaState={mediaState}

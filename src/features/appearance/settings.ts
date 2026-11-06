@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: IslandSettings = {
   showIdleTodoCount: true,
   carryOverIncompleteTodos: false,
   enableTodoReorder: false,
+  dndDuringFocus: true,
   rotateTodos: false,
   todoRotationSeconds: 5,
   autoTuck: false,
@@ -134,6 +135,10 @@ export function normalizeSettings(
       typeof settings?.enableTodoReorder === "boolean"
         ? settings.enableTodoReorder
         : DEFAULT_SETTINGS.enableTodoReorder,
+    dndDuringFocus:
+      typeof settings?.dndDuringFocus === "boolean"
+        ? settings.dndDuringFocus
+        : DEFAULT_SETTINGS.dndDuringFocus,
     rotateTodos: settings?.rotateTodos === true,
     todoRotationSeconds: typeof settings?.todoRotationSeconds === "number" && Number.isFinite(settings.todoRotationSeconds)
       ? clamp(Math.round(settings.todoRotationSeconds), 1, 3_600)

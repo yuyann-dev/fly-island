@@ -4,7 +4,7 @@ import { useTranslation } from "../../i18n";
 import { NumberControl } from "../../components/controls/NumberControl";
 import { ToggleControl } from "../../components/controls/ToggleControl";
 import type { ClipboardHistorySettings } from "./api";
-import { buildShortcutFromEvent, normalizeClipboardShortcut } from "./shortcut";
+import { buildShortcutFromEvent, findSystemShortcutConflict, normalizeClipboardShortcut } from "./shortcut";
 import "./ClipboardSettingsSection.css";
 
 export function ClipboardSettingsSection({ clipboardSettings, focusClipboardShortcutToken, onClipboardSettingsChange, onClipboardShortcutFocusHandled }: {
@@ -17,6 +17,7 @@ export function ClipboardSettingsSection({ clipboardSettings, focusClipboardShor
   const clipboardShortcutPanelRef = useRef<HTMLElement | null>(null);
   const clipboardShortcutButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
+  const hasConflict = findSystemShortcutConflict(clipboardSettings.shortcut);
 
   useEffect(() => {
     if (focusClipboardShortcutToken <= 0) {
@@ -116,6 +117,7 @@ export function ClipboardSettingsSection({ clipboardSettings, focusClipboardShor
         className={[
           "shortcut-control",
           clipboardSettings.shortcutEnabled ? "" : "shortcut-control--disabled",
+          hasConflict ? "shortcut-control--conflict" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -123,12 +125,14 @@ export function ClipboardSettingsSection({ clipboardSettings, focusClipboardShor
         <div className="shortcut-control__meta">
           <span>{t.settings.clipboard.shortcut}</span>
           <strong>{normalizeClipboardShortcut(clipboardSettings.shortcut)}</strong>
+          {hasConflict && <em className="shortcut-control__warning">{t.settings.clipboard.conflict}</em>}
         </div>
         <button
           ref={clipboardShortcutButtonRef}
           className={[
             "shortcut-record-button",
             isRecordingShortcut ? "shortcut-record-button--recording" : "",
+            hasConflict ? "shortcut-record-button--conflict" : "",
           ]
             .filter(Boolean)
             .join(" ")}

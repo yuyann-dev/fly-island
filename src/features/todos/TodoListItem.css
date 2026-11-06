@@ -228,3 +228,37 @@
   cursor: default;
   opacity: 0.35;
 }
+
+.todo-focus-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(64, 125, 147, 0.85);
+  background: rgba(168, 216, 234, 0.3);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.todo-focus-clock {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #c74444;
+  background: rgba(199, 68, 68, 0.12);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.todo-action-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: flex-end;
+}

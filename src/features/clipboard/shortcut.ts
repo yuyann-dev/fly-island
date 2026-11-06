@@ -141,3 +141,34 @@ export function isEditableTarget(target: EventTarget | null) {
     target instanceof HTMLSelectElement
   );
 }
+
+// 系统常用快捷键黑名单：命中时提示可能与系统冲突（不阻止保存，仅警告）
+const SYSTEM_SHORTCUT_BLACKLIST: string[] = [
+  "Ctrl+C",
+  "Ctrl+V",
+  "Ctrl+X",
+  "Ctrl+Z",
+  "Ctrl+A",
+  "Ctrl+Y",
+  "Ctrl+F",
+  "Ctrl+S",
+  "Ctrl+P",
+  "Ctrl+D",
+  "Ctrl+E",
+  "Ctrl+L",
+  "Ctrl+R",
+  "Ctrl+N",
+  "Ctrl+W",
+  "Alt+Tab",
+  "Alt+F4",
+  "Win+D",
+  "Win+E",
+  "Win+L",
+  "Win+R",
+  "Win+M",
+];
+
+export function findSystemShortcutConflict(shortcut: string | undefined): boolean {
+  const normalized = normalizeClipboardShortcut(shortcut);
+  return SYSTEM_SHORTCUT_BLACKLIST.includes(normalized);
+}

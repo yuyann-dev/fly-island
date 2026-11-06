@@ -34,14 +34,18 @@ pub(super) fn monitor(service: Arc<NotificationService>, receiver: mpsc::Receive
     let mut repair_generation = None;
     let mut repair_error = None;
     loop {
-        let (enabled, generation) = match service.state.lock() {
-            Ok(state) => (state.snapshot.enabled, state.generation),
+        let (enabled, generation, mode) = match service.state.lock() {
+            Ok(state) => (state.snapshot.enabled, state.generation, state.snapshot.mode),
             Err(_) => return,
         };
         if !enabled {
             if receiver.recv().is_err() {
                 return;
             }
+            continue;
+        }
+        if mode == QQNotifyMode::Silent {
+            monitor_silent(&service, &receiver);
             continue;
         }
         let poll = read_notifications();
@@ -68,7 +72,9 @@ pub(super) fn monitor(service: Arc<NotificationService>, receiver: mpsc::Receive
             let Ok(mut state) = service.state.lock() else {
                 return;
             };
-            if state.generation != generation || !state.snapshot.enabled {
+            if state.generation != generation || !state.snapshot.enabled
+                || state.snapshot.mode != QQNotifyMode::Toast
+            {
                 continue;
             }
             let before = state.snapshot.clone();
@@ -109,6 +115,101 @@ pub(super) fn monitor(service: Arc<NotificationService>, receiver: mpsc::Receive
             return;
         }
     }
+}
+
+/// Silent mode: run the taskbar flash listener until mode/enabled changes.
+fn monitor_silent(service: &Arc<NotificationService>, receiver: &mpsc::Receiver<()>) {
+    let executable = match qq_executable() {
+        Ok(path) => path,
+        Err(error) => {
+            if let Ok(mut state) = service.state.lock() {
+                state.snapshot.status = NotificationStatus::Error;
+                state.snapshot.error = Some(error);
+                state.snapshot.revision += 1;
+                let snapshot = state.snapshot.clone();
+                publish(service, snapshot, None);
+            }
+            let _ = receiver.recv_timeout(Duration::from_secs(1));
+            return;
+        }
+    };
+    let svc = service.clone();
+    let listener = taskbar_source::QQTaskbarListener::new(executable, move |signal| {
+        if signal != taskbar_source::QQFlashSignal::Attention {
+            return;
+        }
+        let change = {
+            let Ok(mut state) = svc.state.lock() else { return };
+            if !state.snapshot.enabled || state.snapshot.mode != QQNotifyMode::Silent {
+                return;
+            }
+            let now = current_time_secs();
+            // 只保留一条"QQ有新消息"占位项，避免重复
+            if state.snapshot.items.is_empty() {
+                state.snapshot.status = NotificationStatus::Listening;
+                state.snapshot.error = None;
+                state.snapshot.items.push(QQNotification {
+                    id: format!("QQ:flash:{now}"),
+                    title: "QQ".into(),
+                    body: "有新消息".into(),
+                    created_at: now,
+                });
+                state.snapshot.revision += 1;
+                Some(state.snapshot.clone())
+            } else {
+                None
+            }
+        };
+        if let Some(snapshot) = change {
+            publish(&svc, snapshot, None);
+        }
+    });
+    let listener = match listener {
+        Ok(listener) => listener,
+        Err(error) => {
+            if let Ok(mut state) = service.state.lock() {
+                state.snapshot.status = NotificationStatus::Error;
+                state.snapshot.error = Some(error);
+                state.snapshot.revision += 1;
+                let snapshot = state.snapshot.clone();
+                publish(service, snapshot, None);
+            }
+            let _ = receiver.recv_timeout(Duration::from_secs(1));
+            return;
+        }
+    };
+    // 进入监听，标记状态
+    {
+        let Ok(mut state) = service.state.lock() else { return };
+        state.snapshot.status = NotificationStatus::Listening;
+        state.snapshot.error = None;
+        state.snapshot.revision += 1;
+        let snapshot = state.snapshot.clone();
+        publish(service, snapshot, None);
+    }
+    // 消息循环，直到模式/启用状态变化
+    loop {
+        listener.poll();
+        let changed = service.state.lock().is_ok_and(|state| {
+            !state.snapshot.enabled || state.snapshot.mode != QQNotifyMode::Silent
+        });
+        if changed {
+            return;
+        }
+        if receiver.recv_timeout(Duration::from_millis(400))
+            == Err(mpsc::RecvTimeoutError::Disconnected)
+        {
+            return;
+        }
+    }
+}
+
+fn current_time_secs() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 pub(super) fn qq_notification_setting() -> windows::core::Result<NotificationSetting> {
@@ -238,6 +339,9 @@ pub(super) fn read_notifications() -> Result<(NotificationStatus, Vec<QQNotifica
     let mut items = Vec::new();
     for notification in notifications {
         if let Ok(Some(item)) = read_qq_notification(&notification) {
+            // 模式A：读到后立即从通知中心删除，让 Windows toast 只闪一下，不在通知中心驻留
+            let notify_id = notification.Id().unwrap_or_default();
+            let _ = listener.RemoveNotification(notify_id);
             items.push(item);
         }
     }

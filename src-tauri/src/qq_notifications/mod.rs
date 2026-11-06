@@ -3,6 +3,7 @@
 mod history;
 mod launcher;
 mod listener;
+mod taskbar_source;
 
 #[cfg(test)]
 mod tests;
@@ -47,11 +48,20 @@ pub enum NotificationStatus {
     Error,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum QQNotifyMode {
+    #[default]
+    Toast,
+    Silent,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationSnapshot {
     revision: u64,
     enabled: bool,
+    mode: QQNotifyMode,
     status: NotificationStatus,
     items: Vec<QQNotification>,
     error: Option<String>,
@@ -62,6 +72,7 @@ impl Default for NotificationSnapshot {
         Self {
             revision: 0,
             enabled: false,
+            mode: QQNotifyMode::Toast,
             status: NotificationStatus::Disabled,
             items: Vec::new(),
             error: None,
@@ -168,6 +179,26 @@ pub fn set_qq_notifications_enabled(enabled: bool) -> Result<NotificationSnapsho
 }
 
 #[tauri::command]
+pub fn set_qq_notify_mode(mode: QQNotifyMode) -> Result<NotificationSnapshot, String> {
+    let service = service()?;
+    let snapshot = {
+        let mut state = service.state.lock().map_err(|_| "QQ 通知状态不可用。")?;
+        if state.snapshot.mode == mode {
+            return Ok(state.snapshot.clone());
+        }
+        state.generation += 1;
+        state.buffer = NotificationBuffer::default();
+        state.snapshot.mode = mode;
+        state.snapshot.revision += 1;
+        state.snapshot.items.clear();
+        state.snapshot.clone()
+    };
+    publish(service, snapshot.clone(), None);
+    let _ = service.wake.try_send(());
+    Ok(snapshot)
+}
+
+#[tauri::command]
 pub fn clear_qq_notifications() -> Result<NotificationSnapshot, String> {
     let service = service()?;
     let snapshot = {
@@ -175,6 +206,26 @@ pub fn clear_qq_notifications() -> Result<NotificationSnapshot, String> {
         state.buffer.items.clear();
         state.snapshot.items.clear();
         state.snapshot.revision += 1;
+        state.snapshot.clone()
+    };
+    publish(service, snapshot.clone(), None);
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn dismiss_qq_notification(id: String) -> Result<NotificationSnapshot, String> {
+    let service = service()?;
+    let snapshot = {
+        let mut state = service.state.lock().map_err(|_| "QQ 通知状态不可用。")?;
+        state.buffer.items.retain(|item| item.id != id);
+        if let Some(baseline) = state.buffer.baseline.as_mut() {
+            baseline.remove(&id);
+        }
+        let existed = state.snapshot.items.iter().any(|item| item.id == id);
+        state.snapshot.items.retain(|item| item.id != id);
+        if existed {
+            state.snapshot.revision += 1;
+        }
         state.snapshot.clone()
     };
     publish(service, snapshot.clone(), None);

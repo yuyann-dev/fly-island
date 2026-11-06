@@ -20,6 +20,7 @@ export type IslandSettings = {
   showIdleTodoCount: boolean;
   carryOverIncompleteTodos: boolean;
   enableTodoReorder: boolean;
+  dndDuringFocus: boolean;
   rotateTodos: boolean;
   todoRotationSeconds: number;
   autoTuck: boolean;

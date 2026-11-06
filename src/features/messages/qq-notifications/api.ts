@@ -9,9 +9,12 @@ export type QQNotification = {
   createdAt: number;
 };
 
+export type QQNotifyMode = "toast" | "silent";
+
 export type QQNotificationSnapshot = {
   revision: number;
   enabled: boolean;
+  mode: QQNotifyMode;
   status: "disabled" | "waiting" | "listening" | "permissionDenied" | "permissionRequired" | "error";
   items: QQNotification[];
   error: string | null;
@@ -34,6 +37,10 @@ export function setQQNotificationsEnabled(enabled: boolean) {
   return invoke<QQNotificationSnapshot>("set_qq_notifications_enabled", { enabled });
 }
 
+export function setQQNotifyMode(mode: QQNotifyMode) {
+  return invoke<QQNotificationSnapshot>("set_qq_notify_mode", { mode });
+}
+
 export function requestQQNotificationAccess() {
   return invoke<string>("request_qq_notification_access");
 }
@@ -44,6 +51,10 @@ export function openQQNotificationSettings(access: boolean) {
 
 export function clearQQNotifications() {
   return invoke<QQNotificationSnapshot>("clear_qq_notifications");
+}
+
+export function dismissQQNotification(id: string) {
+  return invoke<QQNotificationSnapshot>("dismiss_qq_notification", { id });
 }
 
 export function launchQQ() {

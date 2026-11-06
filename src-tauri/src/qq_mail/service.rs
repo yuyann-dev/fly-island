@@ -31,6 +31,9 @@ pub(super) struct MailState {
     pub(super) cursor: Option<Cursor>,
     pub(super) failures: u32,
     pub(super) next_check: Option<Instant>,
+    pub(super) host: String,
+    pub(super) port: u16,
+    pub(super) proxy: String,
 }
 
 impl MailState {
@@ -117,6 +120,9 @@ pub(super) enum Work {
         generation: u64,
         email: String,
         secret: String,
+        host: String,
+        port: u16,
+        proxy: String,
         reply: Reply,
     },
     Refresh {
@@ -188,6 +194,9 @@ impl MailService {
         generation: u64,
         email: &str,
         secret: Option<&str>,
+        host: &str,
+        port: u16,
+        proxy: Option<&str>,
         connection: &mut SyncConnection,
     ) -> Result<MailSnapshot, String> {
         {
@@ -197,7 +206,7 @@ impl MailService {
             }
         }
         connection.reset(generation);
-        let result = connection.fetch(email, secret);
+        let result = connection.fetch(email, secret, host, port, proxy);
         let mut state = self.lock()?;
         if generation != state.generation || !state.snapshot.enabled {
             return Err("邮箱连接已取消。".into());
@@ -261,8 +270,18 @@ impl MailService {
         };
         current()?;
         let secret = read_secret(email)?.ok_or("未找到邮箱授权码，请重新连接。")?;
+        let (host, port, proxy) = {
+            let state = self.lock()?;
+            if state.host.is_empty() {
+                let (h, p) = default_imap_host(email);
+                (h.to_string(), p, String::new())
+            } else {
+                (state.host.clone(), state.port, state.proxy.clone())
+            }
+        };
         let mut session =
-            open_session(email, &secret).map_err(|failure| failure.message.to_string())?;
+            open_session(email, &secret, &host, port, Some(&proxy).map(|p| p.as_str()).filter(|p| !p.is_empty()))
+                .map_err(|failure| failure.message.to_string())?;
         let result = fetch_content(&mut session, message_id);
         let _ = session.logout();
         current()?;
@@ -307,19 +326,37 @@ pub(super) fn worker(service: Arc<MailService>, receiver: mpsc::Receiver<Work>) 
                 generation,
                 email,
                 secret,
+                host,
+                port,
+                proxy,
                 reply,
             }) => {
+                let proxy_arg = if proxy.is_empty() { None } else { Some(proxy.as_str()) };
                 let _ =
-                    reply.send(service.sync(generation, &email, Some(&secret), &mut connection));
+                    reply.send(service.sync(generation, &email, Some(&secret), &host, port, proxy_arg, &mut connection));
             }
             MailWake::Work(Work::Refresh { generation, reply }) => {
-                let email = service
-                    .lock()
-                    .ok()
-                    .and_then(|state| state.snapshot.email.clone());
+                let (email, host, port, proxy) = {
+                    let st = service.lock();
+                    let email = st
+                        .ok()
+                        .and_then(|state| state.snapshot.email.clone());
+                    let st = service.lock();
+                    let (host, port, proxy) = st.as_ref().map(|state| {
+                        if state.host.is_empty() {
+                            let em = email.clone().unwrap_or_default();
+                            let (h, p) = default_imap_host(&em);
+                            (h.to_string(), p, String::new())
+                        } else {
+                            (state.host.clone(), state.port, state.proxy.clone())
+                        }
+                    }).unwrap_or((DEFAULT_HOST.to_string(), DEFAULT_PORT, String::new()));
+                    (email, host, port, proxy)
+                };
+                let proxy_arg = if proxy.is_empty() { None } else { Some(proxy.as_str()) };
                 let result = email
-                    .ok_or_else(|| "请先连接 QQ 邮箱。".to_string())
-                    .and_then(|email| service.sync(generation, &email, None, &mut connection));
+                    .ok_or_else(|| "请先连接邮箱。".to_string())
+                    .and_then(|email| service.sync(generation, &email, None, &host, port, proxy_arg, &mut connection));
                 let _ = reply.send(result);
             }
             MailWake::Work(Work::Wake) => {}
@@ -333,7 +370,19 @@ pub(super) fn worker(service: Arc<MailService>, receiver: mpsc::Receiver<Work>) 
                     connection.socket = None;
                 }
                 if let Some((generation, email)) = service.begin_sync() {
-                    let _ = service.sync(generation, &email, None, &mut connection);
+                    let (host, port, proxy) = {
+                        let st = service.lock();
+                        st.as_ref().map(|state| {
+                            if state.host.is_empty() {
+                                let (h, p) = default_imap_host(&email);
+                                (h.to_string(), p, String::new())
+                            } else {
+                                (state.host.clone(), state.port, state.proxy.clone())
+                            }
+                        }).unwrap_or((DEFAULT_HOST.to_string(), DEFAULT_PORT, String::new()))
+                    };
+                    let proxy_arg = if proxy.is_empty() { None } else { Some(proxy.as_str()) };
+                    let _ = service.sync(generation, &email, None, &host, port, proxy_arg, &mut connection);
                 }
             }
         }

@@ -14,6 +14,7 @@ export type Translations = {
     saved: string;
     connecting: string;
     noMessages: string;
+    cancel: string;
   };
   messages: {
     title: string;
@@ -47,6 +48,9 @@ export type Translations = {
     title: string;
     pause: string;
     resume: string;
+    modeLabel: string;
+    modeToast: string;
+    modeSilent: string;
     allow: string;
     allowLabel: string;
     grant: string;
@@ -118,7 +122,19 @@ export type Translations = {
     emailPlaceholder: string;
     authorizationCode: string;
     authorizationPlaceholder: string;
+    mailType: string;
+    typeAuto: string;
+    typeQq: string;
+    type163: string;
+    type126: string;
+    typeGmail: string;
+    typeOutlook: string;
+    accounts: string;
+    addAccount: string;
+    removeAccount: string;
     connect: string;
+    proxy: string;
+    proxyPlaceholder: string;
     inbox: string;
     syncing: string;
     empty: string;
@@ -271,6 +287,9 @@ export type Translations = {
     deleteTask: (taskTitle: string) => string;
     reorder: string;
     reorderTask: (taskTitle: string) => string;
+    focusTotal: (sec: number) => string;
+    todayFocus: string;
+    dndAuto: string;
   };
 
   clipboard: {
@@ -397,6 +416,7 @@ export type Translations = {
       title: string;
       carryOverIncomplete: string;
       enableReorder: string;
+      dndDuringFocus: string;
       rotateTodos: string;
       rotationSeconds: string;
     };
@@ -421,6 +441,7 @@ export type Translations = {
       shortcut: string;
       shortcutEnabled: string;
       pressKeys: string;
+      conflict: string;
     };
 
     colors: {

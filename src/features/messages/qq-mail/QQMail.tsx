@@ -2,11 +2,11 @@ import { useTranslation } from "../../../i18n";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, ArrowRight, ArrowUpRight, AtSign, CircleHelp, Image, ImageOff, KeyRound, LoaderCircle, Power, RefreshCw, Unplug } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, AtSign, CircleHelp, Image, ImageOff, KeyRound, LoaderCircle, Network, Plus, Power, RefreshCw, Unplug, X } from "lucide-react";
 import DOMPurify from "dompurify";
 import { MessageSourceIcon } from "../MessageSourceIcon";
 import { nextQQPreview, type QQPreviewTiming } from "../qqNotificationTiming";
-import { getQQMailState, invokeQQMailCommand, listenQQMailChanged, readQQMail, type MailContent, type MailMessage, type MailSnapshot, type QQMailCommand } from "./api";
+import { getQQMailState, invokeQQMailCommand, listMailAccounts, listenQQMailChanged, readQQMail, removeMailAccount, switchMailAccount, type MailContent, type MailMessage, type MailAccountEntry, type MailSnapshot, type QQMailCommand } from "./api";
 import { clearMailSettings, loadRemoteImagePreference, loadSettings, saveMailSettings, saveRemoteImagePreference } from "./storage";
 import "./QQMail.css";
 
@@ -66,6 +66,16 @@ const EMPTY_SNAPSHOT: MailSnapshot = {
   status: "disconnected", unreadCount: null, items: [], lastSyncedAt: null, error: null,
 };
 
+// 邮箱类型预设：auto 时后端按域名自动推断，其余显式指定 IMAP 主机
+const MAIL_PRESETS = [
+  { id: "auto", host: "", port: 993 },
+  { id: "qq", host: "imap.qq.com", port: 993 },
+  { id: "163", host: "imap.163.com", port: 993 },
+  { id: "126", host: "imap.126.com", port: 993 },
+  { id: "gmail", host: "imap.gmail.com", port: 993 },
+  { id: "outlook", host: "outlook.office365.com", port: 993 },
+] as const;
+
 export function useQQMail(canPreview: boolean) {
   const t = useTranslation();
   const translationsRef = useRef(t);
@@ -84,6 +94,17 @@ export function useQQMail(canPreview: boolean) {
   const accountRef = useRef<string | null>(null);
   const timingRef = useRef<QQPreviewTiming | null>(null);
   const actionIdRef = useRef(0);
+  const [accounts, setAccounts] = useState<MailAccountEntry[]>([]);
+  const [addingAccount, setAddingAccount] = useState(false);
+
+  const refreshAccounts = useCallback(async () => {
+    if (!isTauri()) return;
+    try {
+      setAccounts(await listMailAccounts());
+    } catch {
+      /* 账号列表读取失败不阻塞主流程 */
+    }
+  }, []);
 
   const clearPreview = useCallback(() => {
     timingRef.current = null;
@@ -153,11 +174,12 @@ export function useQQMail(canPreview: boolean) {
         const restored = await invokeQQMailCommand("set_qq_mail_enabled", saved);
         if (!cancelled) acceptSnapshot(restored);
       }
+      if (!cancelled) await refreshAccounts();
     })().catch((error: unknown) => {
       if (!cancelled) setActionError(String(error));
     }).finally(() => { if (!cancelled) setBusy(false); });
     return () => { cancelled = true; ++readerRequests.current; unlisten?.(); };
-  }, [acceptSnapshot, clearPreview]);
+  }, [acceptSnapshot, clearPreview, refreshAccounts]);
 
   useEffect(() => {
     if (!previewWindow) return;
@@ -179,12 +201,46 @@ export function useQQMail(canPreview: boolean) {
     } finally { if (id === actionIdRef.current) setBusy(false); }
   }, [acceptSnapshot, t]);
 
-  const connect = useCallback((email: string, authorizationCode: string) =>
-    run("connect_qq_mail", { email, authorizationCode }), [run]);
+  const connect = useCallback((email: string, authorizationCode: string, imapHost?: string, imapPort?: number, proxy?: string, mailType?: string) =>
+    run("connect_qq_mail", { email, authorizationCode, imapHost, imapPort, proxy, mailType }), [run]);
   const setEnabled = useCallback((enabled: boolean) =>
     run("set_qq_mail_enabled", { email: snapshot.email, enabled }), [run, snapshot.email]);
   const refresh = useCallback(() => run("refresh_qq_mail"), [run]);
   const disconnect = useCallback(() => { closeReader(); return run("disconnect_qq_mail"); }, [closeReader, run]);
+  const switchAccount = useCallback(async (email: string) => {
+    if (!isTauri()) return false;
+    setActionError(null);
+    setBusy(true);
+    try {
+      const next = await switchMailAccount(email);
+      const accepted = acceptSnapshot(next);
+      await refreshAccounts();
+      return accepted;
+    } catch (error) {
+      setActionError(String(error));
+      return false;
+    } finally {
+      setBusy(false);
+      setAddingAccount(false);
+    }
+  }, [acceptSnapshot, refreshAccounts]);
+  const removeAccount = useCallback(async (email: string) => {
+    if (!isTauri()) return false;
+    setActionError(null);
+    setBusy(true);
+    try {
+      const next = await removeMailAccount(email);
+      const accepted = acceptSnapshot(next);
+      await refreshAccounts();
+      setAddingAccount(false);
+      return accepted;
+    } catch (error) {
+      setActionError(String(error));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, [acceptSnapshot, refreshAccounts]);
   const readMail = useCallback(async (message: MailMessage) => {
     const requestId = ++readerRequestRef.current;
     setSelectedMail(message);
@@ -241,6 +297,7 @@ export function useQQMail(canPreview: boolean) {
     snapshot, busy, actionError, connect, setEnabled, refresh, disconnect, openMail, openHelp,
     selectedMail, content, reading, readError, readMail, closeReader, openLink,
     preview, previewReceivedAt: preview ? previewWindow?.receivedAt ?? null : null,
+    accounts, addingAccount, setAddingAccount, refreshAccounts, switchAccount, removeAccount,
   };
 }
 
@@ -257,10 +314,13 @@ export function QQMailPanel({ controller, navigation, onRead, onBack }: {
   onBack?: () => void;
 }) {
   const { snapshot, busy, actionError, connect, setEnabled, refresh, disconnect, openMail, openHelp } = controller;
+  const { accounts, addingAccount, setAddingAccount, switchAccount, removeAccount } = controller;
   const t = useTranslation();
   const [email, setEmail] = useState(snapshot.email ?? "");
   const [authorizationCode, setAuthorizationCode] = useState("");
-  const showForm = !snapshot.configured || snapshot.status === "authRequired";
+  const [mailType, setMailType] = useState<string>("auto");
+  const [proxy, setProxy] = useState<string>("");
+  const showForm = !snapshot.configured || snapshot.status === "authRequired" || addingAccount;
   const error = actionError || snapshot.error;
   const listRef = useRef<HTMLDivElement>(null);
   const listScroll = useRef(0);
@@ -333,19 +393,81 @@ export function QQMailPanel({ controller, navigation, onRead, onBack }: {
           {snapshot.configured && <button className="icon-button" type="button" title={t.mail.disconnect} aria-label={t.mail.disconnectLabel} disabled={busy} onClick={() => void disconnect().then((disconnected) => { if (disconnected) setAuthorizationCode(""); })}><Unplug size={16} strokeWidth={1.8} /></button>}
         </div>
       </header>
-      {snapshot.configured && <div className="qq-mail-account" title={`${snapshot.email} · ${t.mail.status[snapshot.status]}`}><span className="message-status" data-state={snapshot.status} role="status" aria-label={t.mail.status[snapshot.status]} /><span className="qq-mail-account__email">{snapshot.email}</span></div>}
+      {accounts.length > 0 && (
+        <div className="qq-mail-accounts" role="group" aria-label={t.mail.accounts}>
+          {accounts.map(({ profile, active }) => (
+            <div
+              key={profile.email}
+              className={`qq-mail-account${active ? " qq-mail-account--active" : ""}`}
+              title={`${profile.email} · ${active ? t.mail.status[snapshot.status] : ""}`}
+            >
+              <button
+                type="button"
+                className="qq-mail-account__switch"
+                disabled={busy || active}
+                onClick={() => void switchAccount(profile.email)}
+              >
+                {active && <span className="message-status" data-state={snapshot.status} role="status" aria-label={t.mail.status[snapshot.status]} />}
+                <span className="qq-mail-account__email">{profile.email}</span>
+              </button>
+              <button
+                type="button"
+                className="qq-mail-account__remove"
+                aria-label={t.mail.removeAccount}
+                title={t.mail.removeAccount}
+                disabled={busy}
+                onClick={() => void removeAccount(profile.email)}
+              >
+                <X size={12} strokeWidth={2} />
+              </button>
+            </div>
+          ))}
+          {!addingAccount && (
+            <button type="button" className="qq-mail-account qq-mail-account--add" disabled={busy} onClick={() => { setEmail(""); setAuthorizationCode(""); setProxy(""); setMailType("auto"); setAddingAccount(true); }}>
+              <Plus size={13} strokeWidth={2} /><span>{t.mail.addAccount}</span>
+            </button>
+          )}
+        </div>
+      )}
       {error && <p className="qq-panel__error" role="alert">{error}</p>}
       {showForm ? (
         <form className="qq-mail-form" onSubmit={(event) => {
           event.preventDefault();
-          void connect(email, authorizationCode).then((connected) => { if (connected) setAuthorizationCode(""); });
+          const preset = MAIL_PRESETS.find((p) => p.id === mailType) ?? MAIL_PRESETS[0];
+          const host = preset.host || undefined;
+          const port = preset.host ? preset.port : undefined;
+          const proxyArg = proxy.trim() || undefined;
+          void connect(email, authorizationCode, host, port, proxyArg, mailType).then((connected) => {
+            if (connected) {
+              setAuthorizationCode("");
+              setAddingAccount(false);
+              void controller.refreshAccounts();
+            }
+          });
         }}>
           <div className="qq-mail-fields">
-            <label className="qq-mail-field"><AtSign size={16} strokeWidth={1.8} aria-hidden="true" /><input id="qq-mail-email" aria-label={t.mail.email} type="email" autoComplete="username" placeholder={t.mail.emailPlaceholder} required maxLength={80} value={email} disabled={busy || snapshot.configured} onChange={(event) => setEmail(event.currentTarget.value)} /></label>
+            <label className="qq-mail-field qq-mail-field--type">
+              <select
+                aria-label={t.mail.mailType}
+                value={mailType}
+                disabled={busy}
+                onChange={(event) => setMailType(event.currentTarget.value)}
+              >
+                <option value="auto">{t.mail.typeAuto}</option>
+                <option value="qq">{t.mail.typeQq}</option>
+                <option value="163">{t.mail.type163}</option>
+                <option value="126">{t.mail.type126}</option>
+                <option value="gmail">{t.mail.typeGmail}</option>
+                <option value="outlook">{t.mail.typeOutlook}</option>
+              </select>
+            </label>
+            <label className="qq-mail-field"><AtSign size={16} strokeWidth={1.8} aria-hidden="true" /><input id="qq-mail-email" aria-label={t.mail.email} type="email" autoComplete="username" placeholder={t.mail.emailPlaceholder} required maxLength={80} value={email} disabled={busy || (snapshot.configured && !addingAccount)} onChange={(event) => setEmail(event.currentTarget.value)} /></label>
             <label className="qq-mail-field"><KeyRound size={16} strokeWidth={1.8} aria-hidden="true" /><input id="qq-mail-code" aria-label={t.mail.authorizationCode} type="password" autoComplete="off" placeholder={t.mail.authorizationPlaceholder} required maxLength={256} value={authorizationCode} disabled={busy} onChange={(event) => setAuthorizationCode(event.currentTarget.value)} /></label>
+            <label className="qq-mail-field"><Network size={16} strokeWidth={1.8} aria-hidden="true" /><input id="qq-mail-proxy" aria-label={t.mail.proxy} type="text" autoComplete="off" placeholder={t.mail.proxyPlaceholder} maxLength={60} value={proxy} disabled={busy} onChange={(event) => setProxy(event.currentTarget.value)} /></label>
           </div>
           <div className="qq-mail-form__actions">
             <button className="message-action qq-mail-connect" type="submit" disabled={busy || !email.trim() || !authorizationCode.trim()}>{busy ? <LoaderCircle size={15} strokeWidth={1.8} className="qq-mail-spinning" /> : <ArrowRight size={15} strokeWidth={1.8} />}{busy ? t.common.connecting : t.mail.connect}</button>
+            {addingAccount && <button className="message-action" type="button" disabled={busy} onClick={() => setAddingAccount(false)}>{t.common.cancel}</button>}
           </div>
         </form>
       ) : (

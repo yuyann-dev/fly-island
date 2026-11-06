@@ -1,4 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useState } from "react";
 import { Check, GripVertical, Play, Trash2 } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import { getTodoTitleLineCount } from "../../utils/text";
@@ -6,6 +7,37 @@ import { isUpdateTodo } from "./updateTodo";
 import { UpdateTodoAction } from "./UpdateTodoAction";
 import type { TodoItem } from "./types";
 import "./TodoListItem.css";
+
+function formatFocus(sec: number): string {
+  const m = Math.floor(sec / 60);
+  if (m < 60) return `${m}分`;
+  const h = Math.floor(m / 60);
+  return `${h}时${m % 60}分`;
+}
+
+function formatClock(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** 专注进行中的实时正计时：累计时长 + 当前会话已走秒数，每秒刷新。 */
+function LiveFocusClock({ todo }: { todo: TodoItem }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const base = todo.focusTotalSec ?? 0;
+  const current = todo.focusStartedAt
+    ? Math.max(0, Math.floor((now - todo.focusStartedAt) / 1000))
+    : 0;
+  return (
+    <span className="todo-focus-clock" title="专注计时中">
+      {formatClock(base + current)}
+    </span>
+  );
+}
 
 export function TodoListItem({
   todo,
@@ -118,22 +150,31 @@ export function TodoListItem({
       )}
       {isTodayMode && (
         <>
-          {isUpdateTodo(todo) ? <UpdateTodoAction /> : <button
-            className={["todo-start", isActive ? "todo-start--active" : ""]
-              .filter(Boolean)
-              .join(" ")}
-            type="button"
-            title={isActive ? t.todo.stop : t.todo.start}
-            aria-label={t.todo.actionOnTask(
-              isActive ? t.todo.stop : t.todo.start,
-              todo.title,
+          {isUpdateTodo(todo) ? <UpdateTodoAction /> : <span className="todo-action-cell">
+            {isActive && todo.focusStartedAt ? (
+              <LiveFocusClock todo={todo} />
+            ) : (todo.focusTotalSec ?? 0) > 0 && (
+              <span className="todo-focus-badge" title={t.todo.focusTotal(todo.focusTotalSec ?? 0)}>
+                {formatFocus(todo.focusTotalSec ?? 0)}
+              </span>
             )}
-            disabled={todo.completed}
-            onClick={() => onStart(todo.id)}
-          >
-            <Play size={13} strokeWidth={2.4} />
-            <span>{isActive ? t.todo.stop : t.todo.start}</span>
-          </button>}
+            <button
+              className={["todo-start", isActive ? "todo-start--active" : ""]
+                .filter(Boolean)
+                .join(" ")}
+              type="button"
+              title={isActive ? t.todo.stop : t.todo.start}
+              aria-label={t.todo.actionOnTask(
+                isActive ? t.todo.stop : t.todo.start,
+                todo.title,
+              )}
+              disabled={todo.completed}
+              onClick={() => onStart(todo.id)}
+            >
+              <Play size={13} strokeWidth={2.4} />
+              <span>{isActive ? t.todo.stop : t.todo.start}</span>
+            </button>
+          </span>}
           <button
             className="todo-delete"
             type="button"

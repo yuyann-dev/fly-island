@@ -2,6 +2,7 @@ import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "r
 import { ClipboardList, Columns2, NotebookPen, Plus } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import { ArchiveBrowser } from "./ArchiveBrowser";
+import { ArchiveDetail } from "./ArchiveDetail";
 import { TODO_SCROLL_START_ROWS } from "./layout";
 import { TodoListItem } from "./TodoListItem";
 import { TodoNotebookSpine } from "./TodoNotebookSpine";
@@ -291,6 +292,11 @@ export function TodoNotebook({
           layout={archiveLayout}
           onSelectArchive={onSelectArchive}
         />
+      ) : isReviewMode && selectedArchive ? (
+        <ArchiveDetail
+          archive={selectedArchive}
+          onBack={onShowArchive}
+        />
       ) : isDailyMode ? (
         <textarea
           className="daily-note"
@@ -304,7 +310,7 @@ export function TodoNotebook({
         <div className={listClassName} role="list">
           {displayedTodos.length === 0 ? (
             <div className="todo-empty">
-              {isReviewMode ? t.todo.emptyReview : t.todo.empty}
+              {t.todo.empty}
             </div>
           ) : (
             displayedTodos.map((todo) => (

@@ -16,7 +16,23 @@ use std::{
 
 use super::*;
 
-pub(super) const HOST: &str = "imap.qq.com";
+pub(super) const DEFAULT_HOST: &str = "imap.qq.com";
+
+pub(super) const DEFAULT_PORT: u16 = 993;
+
+/// 常见邮箱服务商的默认 IMAP 主机。
+pub(super) fn default_imap_host(email: &str) -> (&'static str, u16) {
+    let domain = email.rsplit('@').next().unwrap_or("").to_lowercase();
+    match domain.as_str() {
+        "qq.com" | "foxmail.com" => ("imap.qq.com", 993),
+        "163.com" => ("imap.163.com", 993),
+        "126.com" => ("imap.126.com", 993),
+        "gmail.com" => ("imap.gmail.com", 993),
+        "outlook.com" | "hotmail.com" | "live.com" => ("outlook.office365.com", 993),
+        "sina.com" => ("imap.sina.com", 993),
+        _ => (DEFAULT_HOST, DEFAULT_PORT),
+    }
+}
 
 pub(super) const MAX_ITEMS: u32 = 20;
 
@@ -162,6 +178,9 @@ pub(super) struct SyncConnection {
     pub(super) session: Option<MailSession>,
     pub(super) socket: Option<TcpStream>,
     pub(super) cached: Option<Inbox>,
+    pub(super) host: String,
+    pub(super) port: u16,
+    pub(super) proxy: String,
     pub(super) idle_supported: bool,
     pub(super) idle_rejected: bool,
 }
@@ -178,7 +197,16 @@ impl SyncConnection {
         &mut self,
         email: &str,
         secret: Option<&str>,
+        host: &str,
+        port: u16,
+        proxy: Option<&str>,
     ) -> Result<Inbox, MailFailure> {
+        // 记录当前连接使用的主机，重连时复用
+        if self.host != host || self.port != port {
+            self.host = host.to_string();
+            self.port = port;
+        }
+        self.proxy = proxy.unwrap_or("").to_string();
         // Only a failed connection needs another TLS handshake, login and credential lookup.
         if let Some(session) = &mut self.session {
             if let Ok(inbox) = fetch_inbox_cached(session, self.cached.as_ref()) {
@@ -201,7 +229,7 @@ impl SyncConnection {
                     .ok_or_else(MailFailure::authentication)?
             }
         };
-        let (mut session, socket) = open_connection(email, secret)?;
+        let (mut session, socket) = open_connection(email, secret, host, port, proxy)?;
         self.idle_supported = session
             .capabilities()
             .map_err(|_| MailFailure::network())?
@@ -222,25 +250,31 @@ pub(super) fn login_failure(error: imap::Error) -> MailFailure {
     }
 }
 
-pub(super) fn open_session(email: &str, secret: &str) -> Result<MailSession, MailFailure> {
-    open_connection(email, secret).map(|(session, _)| session)
+pub(super) fn open_session(
+    email: &str,
+    secret: &str,
+    host: &str,
+    port: u16,
+    proxy: Option<&str>,
+) -> Result<MailSession, MailFailure> {
+    open_connection(email, secret, host, port, proxy).map(|(session, _)| session)
 }
 
 pub(super) fn open_connection(
     email: &str,
     secret: &str,
+    host: &str,
+    port: u16,
+    proxy: Option<&str>,
 ) -> Result<(MailSession, TcpStream), MailFailure> {
-    let mut stream = None;
-    let addresses = (HOST, 993)
-        .to_socket_addrs()
-        .map_err(|_| MailFailure::network())?;
-    for address in addresses {
-        if let Ok(connected) = TcpStream::connect_timeout(&address, Duration::from_secs(10)) {
-            stream = Some(connected);
-            break;
-        }
-    }
-    let stream = stream.ok_or_else(MailFailure::network)?;
+    // Gmail 等被墙主机走 SOCKS5 代理；其余直连。proxy 为显式配置时优先使用。
+    let use_proxy = proxy.map(|p| !p.trim().is_empty()).unwrap_or(false)
+        || host.eq_ignore_ascii_case("imap.gmail.com");
+    let stream = if use_proxy {
+        connect_via_socks(host, port, proxy)?
+    } else {
+        connect_direct(host, port)?
+    };
     stream
         .set_read_timeout(Some(IO_TIMEOUT))
         .map_err(|_| MailFailure::network())?;
@@ -250,7 +284,7 @@ pub(super) fn open_connection(
     let interrupt = stream.try_clone().map_err(|_| MailFailure::network())?;
     let tls = native_tls::TlsConnector::new().map_err(|_| MailFailure::network())?;
     let stream = tls
-        .connect(HOST, stream)
+        .connect(host, stream)
         .map_err(|_| MailFailure::network())?;
     let mut client = imap::Client::new(BoundedStream(stream));
     client.read_greeting().map_err(|_| MailFailure::network())?;
@@ -258,6 +292,30 @@ pub(super) fn open_connection(
         .login(email, secret)
         .map(|session| (session, interrupt))
         .map_err(|(error, _)| login_failure(error))
+}
+
+/// 直连目标 IMAP 主机。
+fn connect_direct(host: &str, port: u16) -> Result<TcpStream, MailFailure> {
+    let mut stream = None;
+    let addresses = (host, port)
+        .to_socket_addrs()
+        .map_err(|_| MailFailure::network())?;
+    for address in addresses {
+        if let Ok(connected) = TcpStream::connect_timeout(&address, Duration::from_secs(10)) {
+            stream = Some(connected);
+            break;
+        }
+    }
+    stream.ok_or_else(MailFailure::network)
+}
+
+/// 通过 SOCKS5 代理连接目标主机。未显式提供代理时使用本地默认 127.0.0.1:7890。
+fn connect_via_socks(host: &str, port: u16, proxy: Option<&str>) -> Result<TcpStream, MailFailure> {
+    let proxy_addr = proxy.map(str::trim).filter(|p| !p.is_empty()).unwrap_or("127.0.0.1:7890");
+    use socks::Socks5Stream;
+    let connected = Socks5Stream::connect(proxy_addr, (host, port))
+        .map_err(|_| MailFailure::network())?;
+    Ok(connected.into_inner())
 }
 
 #[cfg(test)]

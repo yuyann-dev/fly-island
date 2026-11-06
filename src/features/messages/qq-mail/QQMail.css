@@ -1,6 +1,21 @@
 .qq-mail-panel { overflow: hidden; }
 .qq-mail-account { display: flex; align-items: center; gap: 7px; min-height: 22px; flex: 0 0 auto; padding: 4px 8px; }
 .qq-mail-account__email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 11px; color: rgba(241, 246, 250, .55); }
+
+/* 多账号账号栏 */
+.qq-mail-accounts { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 6px 10px 2px; overflow-x: auto; scrollbar-width: none; }
+.qq-mail-accounts::-webkit-scrollbar { display: none; }
+.qq-mail-accounts .qq-mail-account { gap: 4px; padding: 3px 4px 3px 8px; border: 1px solid var(--color-white-a10); border-radius: var(--radius-lg); background: rgba(255, 255, 255, .035); }
+.qq-mail-account--active { border-color: rgba(143, 216, 255, .55); background: rgba(143, 216, 255, .1); }
+.qq-mail-account__switch { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0; color: inherit; font: inherit; border: 0; background: transparent; }
+.qq-mail-account__switch:disabled { cursor: default; }
+.qq-mail-account__switch .qq-mail-account__email { color: rgba(241, 246, 250, .7); }
+.qq-mail-account__remove { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; color: rgba(241, 246, 250, .45); border: 0; border-radius: 50%; background: transparent; }
+.qq-mail-account__remove:hover:not(:disabled) { color: rgba(241, 246, 250, .9); background: rgba(255, 255, 255, .12); }
+.qq-mail-account__remove:disabled { opacity: .5; }
+.qq-mail-account--add { gap: 4px; padding: 3px 9px; color: rgba(241, 246, 250, .6); border: 1px dashed var(--color-white-a10); border-radius: var(--radius-lg); background: transparent; font-size: 11px; }
+.qq-mail-account--add:hover:not(:disabled) { color: rgba(241, 246, 250, .9); border-color: rgba(143, 216, 255, .5); }
+.qq-mail-account--add:disabled { opacity: .5; }
 .qq-mail-form { display: flex; flex-direction: column; flex: 1; gap: var(--space-xl); min-height: 0; width: min(100%, 380px); margin: 0 auto; padding: 16px 4px 4px; overflow-y: auto; }
 .qq-mail-fields { display: flex; flex-direction: column; gap: var(--space-lg); flex: 0 0 auto; }
 .qq-mail-field { display: flex; align-items: center; gap: var(--space-lg); padding: 0 14px; color: rgba(241, 246, 250, .4); border: 1px solid var(--color-white-a10); border-radius: var(--radius-lg); background: rgba(255, 255, 255, .035); transition: border-color 160ms, background 160ms; }
@@ -10,6 +25,21 @@
 .qq-mail-field > input:focus-visible { outline: none; }
 .qq-mail-field > input::placeholder { color: rgba(241, 246, 250, .4); }
 .qq-mail-field > input:disabled { opacity: .5; }
+.qq-mail-field--type { padding: 0 10px; }
+.qq-mail-field--type select {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 0;
+  color: var(--color-page-text);
+  font: inherit;
+  font-size: 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.qq-mail-field--type select:focus-visible { outline: none; }
+.qq-mail-field--type select:disabled { opacity: .5; }
+.qq-mail-field--type select option { color: #1f1b16; background: #f1f6fa; }
 .qq-mail-form__actions { display: flex; align-items: center; justify-content: flex-end; flex: 0 0 auto; gap: var(--space-lg); }
 .qq-mail-connect { min-width: 88px; min-height: 32px; }
 .qq-mail-list { padding: 0; }

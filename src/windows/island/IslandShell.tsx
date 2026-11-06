@@ -28,6 +28,7 @@ type IslandShellProps = {
   isDetached: boolean;
   showTitle: boolean;
   showCollapsedText: boolean;
+  isFocusing: boolean;
   collapsedTaskTitle: string | null;
   collapsedTodoCount: number | null;
   mediaState: MediaState;
@@ -59,6 +60,7 @@ export function IslandShell({
   isDetached,
   showTitle,
   showCollapsedText,
+  isFocusing,
   collapsedTaskTitle,
   collapsedTodoCount,
   mediaState,
@@ -141,10 +143,11 @@ export function IslandShell({
           qqMail={qqMail}
           qqNotifications={qqNotifications}
           wechatReminders={wechatReminders}
-          preview={preview}
+          preview={isFocusing ? null : preview}
           page={page}
           isExpanded={isExpanded}
           isTucked={isTucked}
+          isFocusing={isFocusing}
           showTitle={showTitle}
           showCollapsedText={showCollapsedText}
           collapsedLabel={collapsedLabel}
