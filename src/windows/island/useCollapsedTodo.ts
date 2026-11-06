@@ -65,16 +65,18 @@ export function useCollapsedTodo(
   const collapsedTodoCount = settings.showIdleTodoCount && !collapsedTaskTitle
     ? todos.filter((todo) => !todo.completed).length
     : null;
+  // 专注时中间块强制显示（即使 showCollapsedText 关闭），宽度也按任务文字计算
+  const showCenter = Boolean(activeTodoId) || settings.showCollapsedText;
   const collapsedIslandWidth = useMemo(
     () =>
       getCollapsedIslandWidth(
-        settings.showCollapsedText
+        showCenter
           ? collapsedWidthSource ?? (collapsedTodoCount !== null
             ? t.island.pendingTodos(collapsedTodoCount)
             : settings.showTitle ? "fly-island" : "")
           : "",
       ),
-    [collapsedWidthSource, collapsedTodoCount, settings.showCollapsedText, settings.showTitle, t],
+    [showCenter, collapsedWidthSource, collapsedTodoCount, settings.showTitle, t],
   );
 
   return { collapsedTaskTitle, collapsedTodoCount, collapsedIslandWidth };

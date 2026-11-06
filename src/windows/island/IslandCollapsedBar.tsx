@@ -73,8 +73,13 @@ export function IslandCollapsedBar({
       {showCollapsedText && showTitle && (
         <span className="island__brand">fly-island</span>
       )}
-      {showCollapsedText && collapsedTaskTitle && (
-        <span className={isFocusing ? "island__active-task island__active-task--focus" : "island__active-task"}>
+      {isFocusing && collapsedTaskTitle && (
+        <span className="island__active-task island__active-task--focus">
+          {collapsedTaskTitle}
+        </span>
+      )}
+      {!isFocusing && showCollapsedText && collapsedTaskTitle && (
+        <span className="island__active-task">
           {showTitle ? "· " : ""}
           {collapsedTaskTitle}
         </span>
