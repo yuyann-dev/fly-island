@@ -7,6 +7,8 @@ export type TodoItem = {
   completed: boolean;
   createdAt: number;
   kind?: "update";
+  focusStartedAt?: number;
+  focusTotalSec?: number;
 };
 
 export type TodoArchive = {

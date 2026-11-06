@@ -198,6 +198,14 @@ export function useQQMail(canPreview: boolean) {
       if (requestId !== readerRequestRef.current) return false;
       if (next.id !== message.id) throw new Error(t.mail.changed);
       setContent(next);
+      // 标记为已读：前端本地更新，未读数减1
+      setSnapshot((prev) => ({
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === message.id ? { ...item, unread: false } : item
+        ),
+        unreadCount: Math.max(0, (prev.unreadCount ?? 1) - 1),
+      }));
       return true;
     } catch (error) {
       if (requestId === readerRequestRef.current) setReadError(error instanceof Error ? error.message : String(error));

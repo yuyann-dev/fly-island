@@ -65,10 +65,31 @@ export function useTodoList(onStartTodo: () => void) {
       }
 
       if (activeTodoId === id) {
+        // 停止计时：把已用时累加到 focusTotalSec
+        if (todo.focusStartedAt) {
+          const elapsed = Math.floor((Date.now() - todo.focusStartedAt) / 1000);
+          setTodos((current) =>
+            current.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    focusStartedAt: undefined,
+                    focusTotalSec: (item.focusTotalSec ?? 0) + elapsed,
+                  }
+                : item
+            )
+          );
+        }
         setActiveTodoId(null);
         return;
       }
 
+      // 开始计时
+      setTodos((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, focusStartedAt: Date.now() } : item
+        )
+      );
       setActiveTodoId(id);
       onStartTodo();
     },

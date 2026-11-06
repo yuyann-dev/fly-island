@@ -141,8 +141,17 @@ export function useQQNotifications(canPreview: boolean) {
     setPreviewWindow(null);
   }), [run]);
 
+  const dismissNotification = useCallback((id: string) => {
+    setSnapshot((prev) => ({
+      ...prev,
+      items: prev.items.filter((item) => item.id !== id),
+    }));
+    setPreviewWindow(null);
+  }, []);
+
   return {
     snapshot, busy, actionError, setEnabled, requestAccess, openSettings, refresh, clear, openQQ,
+    dismissNotification,
     previewReceivedAt: canPreview ? previewWindow?.receivedAt ?? null : null,
     preview: canPreview && previewWindow
       ? snapshot.items.find((item) => item.id === previewWindow.id) ?? null

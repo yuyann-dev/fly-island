@@ -9,10 +9,10 @@ use tauri::{
 use crate::{island, settings_window};
 
 pub(crate) fn build_tray(app: &App) -> tauri::Result<()> {
-    let show_item = MenuItem::with_id(app, "show", "Show Island", true, None::<&str>)?;
-    let hide_item = MenuItem::with_id(app, "hide", "Hide Island", true, None::<&str>)?;
-    let settings_item = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let show_item = MenuItem::with_id(app, "show", "显示灵动岛", true, None::<&str>)?;
+    let hide_item = MenuItem::with_id(app, "hide", "隐藏灵动岛", true, None::<&str>)?;
+    let settings_item = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &hide_item, &settings_item, &quit_item])?;
 
     let mut tray = TrayIconBuilder::new()

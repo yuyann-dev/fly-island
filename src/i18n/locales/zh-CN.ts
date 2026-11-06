@@ -184,9 +184,9 @@ const zhCN: Translations = {
     resetPositionLabel: "回到主屏顶部居中",
     editor: "岛屿编辑",
     todoList: "任务清单",
-    music: "Music",
+    music: "音乐",
     clipboardHistory: "剪贴板历史",
-    layoutEditor: "布局编辑",
+    layoutEditor: "设置",
   },
 
   agent: {
@@ -203,34 +203,31 @@ const zhCN: Translations = {
     },
   },
 
-  // These panels shipped in English in the original Chinese-first build.
-  // zh-CN keeps that exact wording so existing users see no change; the en
-  // locale is identical here. Translate later if a fully-Chinese UI is wanted.
   notebook: {
     sectionLabel: "任务清单",
-    backToToday: "Back to today's todo list",
-    saveToday: "Save today's todo list",
-    saveTodayMarkdown: "Save today's todo list as markdown",
-    reviewSaved: "Review saved todo lists",
-    tasksTab: "Tasks",
-    dailyTab: "DAILY",
-    reviewTab: "Review",
-    openDailyNote: "Open daily note",
-    backToTasks: "Back to tasks",
-    notebookCards: "Notebook cards",
-    twoColumnTimeline: "Two-column timeline",
-    openCount: (count) => `${count} open`,
-    addTaskFor: (date) => `Add a task for ${date}`,
-    reviewTodos: "Review your todos",
-    addTaskHint: "Add a task, press Enter to save",
-    dailyPlaceholder: "Write today's notes...",
-    dailyNoteLabel: "Daily note",
+    backToToday: "返回今日任务",
+    saveToday: "保存今日任务",
+    saveTodayMarkdown: "保存为 Markdown",
+    reviewSaved: "查看历史归档",
+    tasksTab: "任务",
+    dailyTab: "日记",
+    reviewTab: "归档",
+    openDailyNote: "打开日记",
+    backToTasks: "返回任务",
+    notebookCards: "卡片视图",
+    twoColumnTimeline: "时间线视图",
+    openCount: (count) => `${count} 个待办`,
+    addTaskFor: (date) => `为 ${date} 添加任务`,
+    reviewTodos: "查看历史任务",
+    addTaskHint: "输入任务，回车保存",
+    dailyPlaceholder: "写点今天的笔记...",
+    dailyNoteLabel: "今日笔记",
   },
 
   archive: {
-    noSavedLists: "No saved lists yet",
-    eyebrow: "TODAY",
-    noTasks: "No tasks",
+    noSavedLists: "暂无已保存清单",
+    eyebrow: "今天",
+    noTasks: "无任务",
   },
 
   music: {
@@ -260,7 +257,7 @@ const zhCN: Translations = {
 
   todo: {
     empty: "今天还很轻",
-    emptyReview: "Nothing was written here",
+    emptyReview: "这里什么都没写",
     complete: "完成",
     markIncomplete: "标记未完成",
     actionOnTask: (action, taskTitle) => `${action}：${taskTitle}`,

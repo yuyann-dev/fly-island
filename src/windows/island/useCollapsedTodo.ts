@@ -1,10 +1,16 @@
 import { isUpdateTodo } from "../../features/todos/updateTodo";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { IslandSettings } from "../../features/appearance/types";
 import type { TodoItem } from "../../features/todos/types";
 import { useTranslation } from "../../i18n";
 import { useTodoRotation } from "./useIslandAutomation";
 import { getCollapsedIslandWidth } from "./layout";
+
+function formatTimer(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 /**
  * What the collapsed island shows for todos: the active (or rotating) todo
@@ -17,6 +23,12 @@ export function useCollapsedTodo(
   isRotationPaused: boolean,
 ) {
   const t = useTranslation();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!activeTodoId) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeTodoId]);
   const pendingTodoIds = useMemo(
     () => todos.filter((todo) => !todo.completed && !isUpdateTodo(todo)).map((todo) => todo.id),
     [todos],
@@ -26,14 +38,19 @@ export function useCollapsedTodo(
     activeTodoId,
     settings.rotateTodos,
     settings.todoRotationSeconds,
-    isRotationPaused,
+    isRotationPaused || !!activeTodoId,
   );
   const collapsedTaskTitle = useMemo(() => {
     const activeTodo = todos.find(
       (todo) => todo.id === displayedTodoId && !todo.completed,
     );
-    return activeTodo?.title ?? null;
-  }, [displayedTodoId, todos]);
+    if (!activeTodo) return null;
+    if (activeTodo.focusStartedAt) {
+      const elapsed = Math.floor((now - activeTodo.focusStartedAt) / 1000);
+      return `${activeTodo.title} · ${formatTimer(elapsed)}`;
+    }
+    return activeTodo.title;
+  }, [displayedTodoId, todos, now]);
   const collapsedTodoCount = settings.showIdleTodoCount && !collapsedTaskTitle
     ? todos.filter((todo) => !todo.completed).length
     : null;

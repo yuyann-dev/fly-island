@@ -41,9 +41,19 @@ export function IslandApp() {
     openIslandPage,
     toggleClipboardHistory,
   } = useIslandNavigation();
-  const qqNotifications = useQQNotifications(mode === "collapsed" && !isTucked);
-  const wechatReminders = useWeChatReminders(mode === "collapsed" && !isTucked);
-  const qqMail = useQQMail(mode === "collapsed" && !isTucked);
+  const [settings, setSettings] = useIslandSettings();
+  const openSavePathSettings = useCallback(() => {
+    openSettingsWindow("savePath");
+  }, []);
+  const { todos, activeTodoId, todoPageMode, notebookProps } = useTodos({
+    carryOverIncompleteTodos: settings.carryOverIncompleteTodos,
+    onStartTodo: collapseIsland,
+    onMissingSaveDirectory: openSavePathSettings,
+  });
+  const canPreview = mode === "collapsed" && !isTucked && !activeTodoId;
+  const qqNotifications = useQQNotifications(canPreview);
+  const wechatReminders = useWeChatReminders(canPreview);
+  const qqMail = useQQMail(canPreview);
   const [messageSource, setMessageSource] = useState<MessageView>("qq");
   const {
     mediaState,
@@ -56,17 +66,6 @@ export function IslandApp() {
   } = useMediaState();
   const [musicSettingsOpen, setMusicSettingsOpen] = useState(false);
   const agentStatus = useAgentStatus();
-  const [settings, setSettings] = useIslandSettings();
-
-  const openSavePathSettings = useCallback(() => {
-    openSettingsWindow("savePath");
-  }, []);
-
-  const { todos, activeTodoId, todoPageMode, notebookProps } = useTodos({
-    carryOverIncompleteTodos: settings.carryOverIncompleteTodos,
-    onStartTodo: collapseIsland,
-    onMissingSaveDirectory: openSavePathSettings,
-  });
 
   const { collapsedTaskTitle, collapsedTodoCount, collapsedIslandWidth } =
     useCollapsedTodo(
