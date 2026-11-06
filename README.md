@@ -1,11 +1,19 @@
 <div align="center">
   <img src="src-tauri/icons/mark.svg" alt="Fly Island logo" width="96" height="96">
 
-  <h1>Fly Island</h1>
+  <h1>Fly Island (中文增强版)</h1>
 
   <p><a href="README.en.md">English</a> · 中文</p>
 
   <p>一款 Windows 桌面效率工具，在屏幕顶部集中管理待办、剪贴板、音乐、AI 状态、快捷翻译和消息提醒。</p>
+
+> **本 Fork 改动说明**（基于 [flyl1u/fly-island](https://github.com/flyl1u/fly-island)）：
+> - 全中文 UI：所有界面文案统一中文化
+> - 任务正计时：开始按钮点击后在灵动岛显示 `任务名 · MM:SS` 正计时
+> - 勿扰模式：开始任务后自动暂停通知预览弹窗（红点保留）
+> - 通知已读联动：QQ 通知/邮件点开后自动从列表移除，未读数同步减 1
+> - 托盘菜单中文化
+
 
   <p>
     <a href="https://island.flyliu.org/">在线预览</a>
