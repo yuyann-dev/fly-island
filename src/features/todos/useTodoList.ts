@@ -22,13 +22,13 @@ export function useTodoList(onStartTodo: () => void) {
     }
 
     setTodos((currentTodos) => [
+      ...currentTodos,
       {
         id: createTodoId(),
         title,
         completed: false,
         createdAt: Date.now(),
       },
-      ...currentTodos,
     ]);
     setDraftTodo("");
   }, [draftTodo]);
