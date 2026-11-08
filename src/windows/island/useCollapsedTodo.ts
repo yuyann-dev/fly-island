@@ -26,6 +26,9 @@ export function useCollapsedTodo(
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!activeTodoId) return;
+    // 开始计时瞬间立刻把"当前时间"对齐到此刻，避免用上一次秒针停留的旧值
+    // 算出负数时长（如 -1:-3）闪烁
+    setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [activeTodoId]);
@@ -48,7 +51,10 @@ export function useCollapsedTodo(
     );
     if (!activeTodo) return null;
     if (activeTodo.focusStartedAt) {
-      const elapsed = Math.floor((now - activeTodo.focusStartedAt) / 1000);
+      const elapsed = Math.max(
+        0,
+        Math.floor((now - activeTodo.focusStartedAt) / 1000),
+      );
       return `${activeTodo.title} · ${formatTimer(elapsed)}`;
     }
     return activeTodo.title;
